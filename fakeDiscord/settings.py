@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,13 +22,52 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+%i58rrfb9dy0v)cfb5xdz=_=jy#kfq%s)pgscvq5q+19)rz!q'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-+%i58rrfb9dy0v)cfb5xdz=_=jy#kfq%s)pgscvq5q+19)rz!q')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ["claim-nitro.onrender.com"]
+# Get Render external hostname
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 
+# ALLOWED_HOSTS configuration
+ALLOWED_HOSTS = []
+
+# Add Render domain and localhost
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+    ALLOWED_HOSTS.append('.onrender.com')  # Allow all subdomains
+else:
+    ALLOWED_HOSTS.append('localhost')
+    ALLOWED_HOSTS.append('127.0.0.1')
+    ALLOWED_HOSTS.append('0.0.0.0')
+
+# CSRF Trusted Origins - CRITICAL for Render deployment
+CSRF_TRUSTED_ORIGINS = []
+
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+    CSRF_TRUSTED_ORIGINS.append(f'http://{RENDER_EXTERNAL_HOSTNAME}')
+    CSRF_TRUSTED_ORIGINS.append('https://*.onrender.com')
+else:
+    CSRF_TRUSTED_ORIGINS.append('http://localhost:8000')
+    CSRF_TRUSTED_ORIGINS.append('http://127.0.0.1:8000')
+
+# Security settings for production
+if not DEBUG:
+    # Security settings for Render production
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+else:
+    # Local development settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # Application definition
 
@@ -38,10 +79,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'whitenoise.runserver_nostatic',  # Add whitenoise
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add this line
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,6 +123,14 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Render PostgreSQL database (if you want to use it later)
+if not DEBUG:
+    DATABASES['default'] = dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True
+    )
 
 
 # Password validation
@@ -120,13 +171,30 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+# Static files directories
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+# For production: static files root directory
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise static file serving
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Session settings
+SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
+SESSION_SAVE_EVERY_REQUEST = True
 
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-    
-]
+# CSRF settings
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_HTTPONLY = False
+
+# Login URL
+LOGIN_URL = '/admin/login/'
