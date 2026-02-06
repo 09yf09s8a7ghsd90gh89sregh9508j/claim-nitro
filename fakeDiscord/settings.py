@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-+%i58rrfb9dy0v)cfb5xdz=_=jy#kfq%s)pgscvq5q+19)rz!q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["claim-nitro.onrender.com"]
 
 
 # Application definition
